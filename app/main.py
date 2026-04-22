@@ -1,16 +1,22 @@
 import socketserver
 
+from app.resp import Buffer, parse, process
+
 
 class MyTCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        while True:
-            data = self.rfile.readline(10000)
-            if not data:
-                break
+        print(f"Connected from {self.client_address[0]}")
+        buf = Buffer(self.rfile)
 
-            data = data.rstrip()
-            if data == b"PING":
-                self.wfile.write(b"+PONG\r\n")
+        while True:
+            try:
+                request = parse(buf)
+                print(f"Request is:{request}")
+                response = process(request)
+                print(f"Response is: {response}")
+                self.wfile.write(response)
+            except EOFError:
+                break
 
 
 def main():
