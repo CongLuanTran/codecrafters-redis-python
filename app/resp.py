@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from io import BufferedIOBase
 
 
@@ -44,6 +45,10 @@ class BulkString:
     def encode(s: str):
         return ("$" + str(len(s)) + "\r\n" + s + "\r\n").encode()
 
+    @staticmethod
+    def null():
+        return ("$-1\r\n").encode()
+
 
 class Array:
     @staticmethod
@@ -76,8 +81,20 @@ class server:
                 return BulkString.encode(a[1])
             case "set":
                 name, val = a[1:3]
-                cls.var[name] = val
+                expire = None
+                if len(a) > 3:
+                    op, opval = a[3:5]
+                    now = datetime.today()
+                    expire = now + timedelta(milliseconds=int(opval))
+                cls.var[name] = {
+                    "val": val,
+                    "expire": expire,
+                }
                 return SimpleString.encode("OK")
             case "get":
                 name = a[1]
-                return BulkString.encode(cls.var[name])
+                x = cls.var[name]
+                now = datetime.today()
+                if x and x["expire"] is None or x["expire"] > now:
+                    return BulkString.encode(x["val"])
+                return BulkString.null()
