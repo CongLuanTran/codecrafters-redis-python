@@ -64,8 +64,20 @@ def parse(b: Buffer):
             pass
 
 
-def process(a: list[str]):
-    if a[0].lower() == "ping":
-        return SimpleString.encode("PONG")
-    elif a[0].lower() == "echo":
-        return BulkString.encode(a[1])
+class server:
+    var = {}
+
+    @classmethod
+    def process(cls, a: list[str]):
+        match a[0].lower():
+            case "ping":
+                return SimpleString.encode("PONG")
+            case "echo":
+                return BulkString.encode(a[1])
+            case "set":
+                name, val = a[1:3]
+                cls.var[name] = val
+                return SimpleString.encode("OK")
+            case "get":
+                name = a[1]
+                return BulkString.encode(cls.var[name])

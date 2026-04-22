@@ -1,6 +1,6 @@
 import socketserver
 
-from app.resp import Buffer, parse, process
+from app.resp import Buffer, parse, server
 
 
 class MyTCPHandler(socketserver.StreamRequestHandler):
@@ -12,7 +12,7 @@ class MyTCPHandler(socketserver.StreamRequestHandler):
             try:
                 request = parse(buf)
                 print(f"Request is:{request}")
-                response = process(request)
+                response = server.process(request)
                 print(f"Response is: {response}")
                 self.wfile.write(response)
             except EOFError:
