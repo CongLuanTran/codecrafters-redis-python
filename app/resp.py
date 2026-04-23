@@ -15,6 +15,14 @@ class SimpleString:
         return f"+{self.string}\r\n".encode()
 
 
+class Interger:
+    def __init__(self, val: int):
+        self.val = val
+
+    def __bytes__(self):
+        return f":{self.val}\r\n".encode()
+
+
 class BulkString:
     def __init__(self, string: str | None):
         self.string = string

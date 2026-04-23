@@ -1,17 +1,19 @@
 from datetime import datetime, timedelta
 
-from app.resp import BulkString, SimpleString
+from app.resp import BulkString, Interger, SimpleString
 
 
 class RedisServer:
     def __init__(self):
         self.store = {}
+        self.list = {}
         self.expires = {}
         self.commands = {
             "PING": self.ping,
             "ECHO": self.echo,
             "GET": self.get,
             "SET": self.set,
+            "RPUSH": self.append_list,
         }
 
     def dispatch(self, cmd):
@@ -60,6 +62,13 @@ class RedisServer:
             return SimpleString("OK")
 
         raise CommandError.wrong_argument_count("set")
+
+    def append_list(self, cmd):
+        if len(cmd) == 3:
+            if cmd[1] not in self.list:
+                self.list[cmd[1]] = []
+            self.list[cmd[1]].append(cmd[2])
+            return Interger(len(self.list[cmd[1]]))
 
 
 class CommandError(Exception):
