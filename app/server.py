@@ -5,8 +5,8 @@ from app.resp import BulkString, Interger, SimpleString
 
 class RedisServer:
     def __init__(self):
-        self.store = {}
-        self.list = {}
+        self.store: dict[str, str] = {}
+        self.list: dict[str, list] = {}
         self.expires = {}
         self.commands = {
             "PING": self.ping,
@@ -64,10 +64,10 @@ class RedisServer:
         raise CommandError.wrong_argument_count("set")
 
     def append_list(self, cmd):
-        if len(cmd) == 3:
+        if len(cmd) >= 3:
             if cmd[1] not in self.list:
                 self.list[cmd[1]] = []
-            self.list[cmd[1]].append(cmd[2])
+            self.list[cmd[1]].extend(cmd[2:])
             return Interger(len(self.list[cmd[1]]))
 
 
