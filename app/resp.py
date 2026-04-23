@@ -42,10 +42,18 @@ class BulkString:
 
 
 class Array:
+    def __init__(self, array: list):
+        self.array = array
+
     @staticmethod
     async def decode(reader: StreamReader):
         count = int(await readline(reader))
         return [await resp_decode(reader) for _ in range(count)]
+
+    def __bytes__(self):
+        head = f"*{len(self.array)}\r\n".encode()
+        body = b"".join(bytes(BulkString(i)) for i in self.array)
+        return head + body
 
 
 async def resp_decode(reader: StreamReader):
