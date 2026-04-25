@@ -1,3 +1,5 @@
+import asyncio
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
 from app.resp import Array, BulkString, Integer, SimpleString
@@ -5,9 +7,11 @@ from app.resp import Array, BulkString, Integer, SimpleString
 
 class RedisServer:
     def __init__(self):
-        self.store: dict[str, str] = {}
-        self.list: dict[str, list] = {}
+        self.store = defaultdict(str)
+        self.list = defaultdict(list)
         self.expires = {}
+        self.lock = asyncio.Lock()
+        self.waiters = defaultdict(deque[asyncio.Future])
         self.commands = {
             "PING": self.ping,
             "ECHO": self.echo,
@@ -18,17 +22,18 @@ class RedisServer:
             "LLEN": self.llen,
             "LRANGE": self.lrange,
             "LPOP": self.lpop,
+            "BLPOP": self.blpop,
         }
 
-    def dispatch(self, cmd):
+    async def dispatch(self, cmd):
         name = cmd[0].upper()
 
         if name not in self.commands:
             raise CommandError(f"unknown command '{cmd[0]}'")
 
-        return self.commands[name](cmd)
+        return await self.commands[name](cmd)
 
-    def ping(self, cmd):
+    async def ping(self, cmd):
         if len(cmd) == 1:
             return SimpleString("PONG")
 
@@ -37,13 +42,13 @@ class RedisServer:
 
         raise CommandError.wrong_argument_count("ping")
 
-    def echo(self, cmd):
+    async def echo(self, cmd):
         if len(cmd) == 2:
             return BulkString(cmd[1])
 
         raise CommandError.wrong_argument_count("echo")
 
-    def get(self, cmd):
+    async def get(self, cmd):
         if len(cmd) == 2:
             if cmd[1] in self.expires and datetime.now() > self.expires[cmd[1]]:
                 self.store.pop(cmd[1], None)
@@ -52,7 +57,7 @@ class RedisServer:
 
         raise CommandError.wrong_argument_count("get")
 
-    def set(self, cmd):
+    async def set(self, cmd):
         if len(cmd) >= 3:
             self.store[cmd[1]] = cmd[2]
             if len(cmd) > 3:
@@ -67,32 +72,32 @@ class RedisServer:
 
         raise CommandError.wrong_argument_count("set")
 
-    def rpush(self, cmd):
+    async def rpush(self, cmd):
         if len(cmd) >= 3:
-            if cmd[1] not in self.list:
-                self.list[cmd[1]] = []
-            self.list[cmd[1]].extend(cmd[2:])
+            async with self.lock:
+                self.list[cmd[1]].extend(cmd[2:])
+                if self.waiters[cmd[1]]:
+                    fut = self.waiters[cmd[1]].popleft()
+                    if not fut.done():
+                        fut.set_result(True)
             return Integer(len(self.list[cmd[1]]))
 
         raise CommandError.wrong_argument_count("rpush")
 
-    def lpush(self, cmd):
+    async def lpush(self, cmd):
         if len(cmd) >= 3:
-            if cmd[1] not in self.list:
-                self.list[cmd[1]] = []
             for e in cmd[2:]:
                 self.list[cmd[1]].insert(0, e)
             return Integer(len(self.list[cmd[1]]))
 
         raise CommandError.wrong_argument_count("lpush")
 
-    def llen(self, cmd):
+    async def llen(self, cmd):
         if len(cmd) == 2:
-            arr = self.list.get(cmd[1], [])
-            return Integer(len(arr))
+            return Integer(len(self.list[cmd[1]]))
         raise CommandError.wrong_argument_count("llen")
 
-    def lrange(self, cmd):
+    async def lrange(self, cmd):
         if len(cmd) == 4:
             if cmd[1] not in self.list:
                 return Array([])
@@ -111,9 +116,9 @@ class RedisServer:
 
         raise CommandError.wrong_argument_count("lrange")
 
-    def lpop(self, cmd):
+    async def lpop(self, cmd):
         if 3 >= len(cmd) >= 2:
-            arr = self.list.get(cmd[1], [])
+            arr = self.list[cmd[1]]
             if len(cmd) == 3:
                 count = int(cmd[2])
                 if count < 0:
@@ -125,6 +130,38 @@ class RedisServer:
             return BulkString(a)
 
         raise CommandError.wrong_argument_count("lpop")
+
+    async def blpop(self, cmd):
+        if len(cmd) == 3:
+            loop = asyncio.get_running_loop()
+            fut = loop.create_future()
+
+            # LPOP if the list is not empty, else add new waiter
+            async with self.lock:
+                if self.list[cmd[1]]:
+                    val = self.list[cmd[1]].pop(0)
+                    return Array([BulkString(cmd[1]), BulkString(val)])
+
+                self.waiters[cmd[1]].append(fut)
+
+            # Wait in [dur] seconds, or indefintiely if [dur] is 0
+            try:
+                dur = float(cmd[2])
+                dur = None if dur == 0 else dur
+                await asyncio.wait_for(fut, dur)
+            except asyncio.TimeoutError:
+                async with self.lock:
+                    self.waiters[cmd[1]].remove(fut)
+                return Array(None)
+
+            async with self.lock:
+                if self.list[cmd[1]]:
+                    val = self.list[cmd[1]].pop(0)
+                    return Array([BulkString(cmd[1]), BulkString(val)])
+
+                return Array(None)
+
+        raise CommandError.wrong_argument_count("blpop")
 
 
 class CommandError(Exception):

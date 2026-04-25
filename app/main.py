@@ -16,7 +16,7 @@ async def handle_client(
 
         print(f"Request is:{request}")
         try:
-            response = server.dispatch(request)
+            response = await server.dispatch(request)
             writer.write(bytes(response))
             await writer.drain()
         except CommandError as e:

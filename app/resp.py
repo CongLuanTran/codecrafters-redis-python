@@ -43,8 +43,8 @@ class BulkString:
 
 
 class Array:
-    def __init__(self, array: Iterable):
-        self.array = list(array)
+    def __init__(self, array: Iterable | None):
+        self.array = list(array) if array is not None else None
 
     @staticmethod
     async def decode(reader: StreamReader):
@@ -52,6 +52,9 @@ class Array:
         return [await resp_decode(reader) for _ in range(count)]
 
     def __bytes__(self):
+        if self.array is None:
+            return "*-1\r\n".encode()
+
         head = f"*{len(self.array)}\r\n".encode()
         body = b"".join(bytes(i) for i in self.array)
         return head + body
