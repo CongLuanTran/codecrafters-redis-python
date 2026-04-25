@@ -78,8 +78,17 @@ class RedisServer:
             if cmd[1] not in self.list:
                 return Array([])
 
+            length = len(self.list[cmd[1]])
             start = int(cmd[2])
+            if start < 0:
+                start = length + start
+                start = start if start > 0 else 0
+            print(f"Start: {start}")
             stop = int(cmd[3])
+            if stop < 0:
+                stop = length + stop
+                stop = stop if stop > 0 else 0
+            print(f"Stop: {stop}")
 
             return Array(self.list[cmd[1]][start : stop + 1])
 
