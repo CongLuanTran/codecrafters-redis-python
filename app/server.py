@@ -14,6 +14,7 @@ class RedisServer:
             "GET": self.get,
             "SET": self.set,
             "RPUSH": self.rpush,
+            "LPUSH": self.lpush,
             "LRANGE": self.lrange,
         }
 
@@ -72,6 +73,16 @@ class RedisServer:
             return Interger(len(self.list[cmd[1]]))
 
         raise CommandError.wrong_argument_count("rpush")
+
+    def lpush(self, cmd):
+        if len(cmd) >= 3:
+            if cmd[1] not in self.list:
+                self.list[cmd[1]] = []
+            for e in cmd[2:]:
+                self.list[cmd[1]].insert(0, e)
+            return Interger(len(self.list[cmd[1]]))
+
+        raise CommandError.wrong_argument_count("lpush")
 
     def lrange(self, cmd):
         if len(cmd) == 4:
