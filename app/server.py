@@ -102,20 +102,25 @@ class RedisServer:
             if start < 0:
                 start = length + start
                 start = start if start > 0 else 0
-            print(f"Start: {start}")
             stop = int(cmd[3])
             if stop < 0:
                 stop = length + stop
                 stop = stop if stop > 0 else 0
-            print(f"Stop: {stop}")
 
-            return Array(self.list[cmd[1]][start : stop + 1])
+            return Array(map(BulkString, self.list[cmd[1]][start : stop + 1]))
 
         raise CommandError.wrong_argument_count("lrange")
 
     def lpop(self, cmd):
-        if len(cmd) == 2:
+        if 3 >= len(cmd) >= 2:
             arr = self.list.get(cmd[1], [])
+            if len(cmd) == 3:
+                count = int(cmd[2])
+                if count < 0:
+                    raise CommandError("value is out of range, must be positive")
+                a = arr[:count]
+                self.list[cmd[1]] = arr[count:]
+                return Array(map(BulkString, a))
             a = None if len(arr) == 0 else arr.pop(0)
             return BulkString(a)
 

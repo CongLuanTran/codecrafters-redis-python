@@ -1,4 +1,5 @@
 from asyncio import IncompleteReadError, StreamReader
+from typing import Iterable
 
 
 async def readline(reader: StreamReader):
@@ -42,8 +43,8 @@ class BulkString:
 
 
 class Array:
-    def __init__(self, array: list):
-        self.array = array
+    def __init__(self, array: Iterable):
+        self.array = list(array)
 
     @staticmethod
     async def decode(reader: StreamReader):
@@ -52,7 +53,7 @@ class Array:
 
     def __bytes__(self):
         head = f"*{len(self.array)}\r\n".encode()
-        body = b"".join(bytes(BulkString(i)) for i in self.array)
+        body = b"".join(bytes(i) for i in self.array)
         return head + body
 
 
