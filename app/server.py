@@ -17,6 +17,7 @@ class RedisServer:
             "LPUSH": self.lpush,
             "LLEN": self.llen,
             "LRANGE": self.lrange,
+            "LPOP": self.lpop,
         }
 
     def dispatch(self, cmd):
@@ -111,6 +112,14 @@ class RedisServer:
             return Array(self.list[cmd[1]][start : stop + 1])
 
         raise CommandError.wrong_argument_count("lrange")
+
+    def lpop(self, cmd):
+        if len(cmd) == 2:
+            arr = self.list.get(cmd[1], [])
+            a = None if len(arr) == 0 else arr.pop(0)
+            return BulkString(a)
+
+        raise CommandError.wrong_argument_count("lpop")
 
 
 class CommandError(Exception):
