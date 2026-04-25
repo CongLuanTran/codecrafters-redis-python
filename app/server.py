@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from app.resp import Array, BulkString, Interger, SimpleString
+from app.resp import Array, BulkString, Integer, SimpleString
 
 
 class RedisServer:
@@ -15,6 +15,7 @@ class RedisServer:
             "SET": self.set,
             "RPUSH": self.rpush,
             "LPUSH": self.lpush,
+            "LLEN": self.llen,
             "LRANGE": self.lrange,
         }
 
@@ -70,7 +71,7 @@ class RedisServer:
             if cmd[1] not in self.list:
                 self.list[cmd[1]] = []
             self.list[cmd[1]].extend(cmd[2:])
-            return Interger(len(self.list[cmd[1]]))
+            return Integer(len(self.list[cmd[1]]))
 
         raise CommandError.wrong_argument_count("rpush")
 
@@ -80,9 +81,15 @@ class RedisServer:
                 self.list[cmd[1]] = []
             for e in cmd[2:]:
                 self.list[cmd[1]].insert(0, e)
-            return Interger(len(self.list[cmd[1]]))
+            return Integer(len(self.list[cmd[1]]))
 
         raise CommandError.wrong_argument_count("lpush")
+
+    def llen(self, cmd):
+        if len(cmd) == 2:
+            arr = self.list.get(cmd[1], [])
+            return Integer(len(arr))
+        raise CommandError.wrong_argument_count("llen")
 
     def lrange(self, cmd):
         if len(cmd) == 4:

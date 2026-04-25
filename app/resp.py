@@ -15,7 +15,7 @@ class SimpleString:
         return f"+{self.string}\r\n".encode()
 
 
-class Interger:
+class Integer:
     def __init__(self, val: int):
         self.val = val
 
